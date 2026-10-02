@@ -76,10 +76,31 @@ Xas32 a[31:0] b[31:0] op0 fas[31:0] n v z as32
 
 
 *******************************************************************************
+* 32-bit Comparator
+*******************************************************************************
+.subckt cmp32 n v z op[2:1] fcmp[31:0]
+    Xequal op1 0 z equal mux2
+    Xless0 n ninv inverter
+    Xless1 v n ninv nout mux2
+    Xless2 op2 0 nout less mux2
+    Xcmp equal less fcmp0 or2
+    .connect 0 fcmp[31:1]
+.ends
+
+Xcmp32 n v z op[2:1] fcmp[31:0] cmp32
+
+
+*******************************************************************************
 * Test Cases
 *******************************************************************************
 Wop0 op0 nrz(0, 5, 20ns, 0ns, 0.001ns, 0.001ns)
-+ 0 0 0 0 0 1 1 0 0 0 0 0 0 1
++ 0 0 0 0 0 1 1 0 0 0 0 0 0 1 1
+
+Wop1 op1 nrz(0, 5, 20ns, 0ns, 0.001ns, 0.001ns)
++ 1
+
+Wop2 op2 nrz(0, 5, 20ns, 0ns, 0.001ns, 0.001ns)
++ 1
 
 Wa a[31:0] nrz(0, 5, 20ns, 0ns, 0.001ns, 0.001ns)
 + 0
@@ -96,6 +117,11 @@ Wa a[31:0] nrz(0, 5, 20ns, 0ns, 0.001ns, 0.001ns)
 + -1
 + 0x80000000
 + -1
++ 2
++ 0x80000000
++ 3
++ 0x7FFFFFFF
++ 3
 
 Wb b[31:0] nrz(0, 5, 20ns, 0ns, 0.001ns, 0.001ns)
 + 0
@@ -112,20 +138,28 @@ Wb b[31:0] nrz(0, 5, 20ns, 0ns, 0.001ns, 0.001ns)
 + 1
 + 0x80000000
 + -1
++ -3
++ 2
++ 5
++ -2
++ 3
 
 
 *******************************************************************************
 * Transient and Plot Commands
 * Note: sd() displays a range of nodes as a signed decimal (instead of hex)
 *******************************************************************************
-.tran 300ns
+.tran 400ns
 .plot a[31:0]
 .plot b[31:0]
 .plot fas[31:0]
-.plot op0
-.plot n
-.plot v
-.plot z
+.plot sd(fcmp[31:0])
+.plot d(op0)
+.plot d(op1)
+.plot d(op2)
+.plot d(n)
+.plot d(v)
+.plot d(z)
 
 
 *******************************************************************************
