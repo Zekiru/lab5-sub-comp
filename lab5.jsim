@@ -30,19 +30,6 @@
 
 
 *******************************************************************************
-* 32-Bit Counter
-*******************************************************************************
-* .subckt counter32 reset a[31:0] f[31:0] clk
-*     Xincr a[31:0] f[31:0] 0 sum[31:0] c31 c30 add32
-*     Xmux reset#32 sum[31:0] 0#32 d[31:0] mux2
-*     Xreg d[31:0] clk#32 f[31:0] dreg
-* .ends
-* 
-*******************************************************************************
-
-
-
-*******************************************************************************
 * 32-bit NOR
 *******************************************************************************
 .subckt nor32 i[31:0] z
@@ -64,9 +51,8 @@
 * 32-bit Adder-Subtractor
 *******************************************************************************
 .subckt as32 a[31:0] b[31:0] op0 fas[31:0] n v z
-    Xbinv b[31:0] binv[31:0] inverter
-    Xmux op0#32 b[31:0] binv[31:0] bout[31:0] mux2
-    Xadd32 a[31:0] bout[31:0] op0 fas[31:0] c[31:30] add32
+    Xop op0#32 b[31:0] bnew[31:0] xor2
+    Xadd32 a[31:0] bnew[31:0] op0 fas[31:0] c[31:30] add32
     .connect n fas31
     Xover c[31:30] v xor2
     Xzero fas[31:0] z nor32
@@ -77,13 +63,16 @@ Xas32 a[31:0] b[31:0] op0 fas[31:0] n v z as32
 
 *******************************************************************************
 * 32-bit Comparator
+* equal = op1 & z
+* less = op2 & (n XOR v)
+* fcmp0 = less + equal
+* fcmp0 = !( !(op1 & z) ![op2 & (n XOR v)] )
 *******************************************************************************
 .subckt cmp32 n v z op[2:1] fcmp[31:0]
-    Xequal op1 0 z equal mux2
-    Xless0 n ninv inverter
-    Xless1 v n ninv nout mux2
-    Xless2 op2 0 nout less mux2
-    Xcmp equal less fcmp0 or2
+    Xequal op1 z equal nand2
+    Xxor n v l xor2
+    Xless op2 l less nand2
+    Xcmp equal less fcmp0 nand2
     .connect 0 fcmp[31:1]
 .ends
 
