@@ -31,6 +31,7 @@
 
 *******************************************************************************
 * 32-bit NOR
+* - Used by as32 to determine if all 32-bits of input are all 0 
 *******************************************************************************
 .subckt nor32 i[31:0] z
     Xnor0 i[31:28] x0 nor4
@@ -49,6 +50,34 @@
 
 *******************************************************************************
 * 32-bit Adder-Subtractor
+* - An add32 with a operation control bit that switches from add to subtract
+* - Adds when op0 = LOW, subtracts when op0 = HIGH
+* - The routine stays the same for adding (op0 = LOW), but negates the value 
+*   of b[31:0] in the same add32 routine when subtracting (op0 = HIGH)
+* 
+* Negation
+* - Negation of a signed 32-bit value is done by inverting all bits first  
+*   then adding 1 after
+* - The inversion of b[31:0] is controlled by op0 and is implemented using a 
+*   XOR gates with op0 and the bits of b[31:0], which performs better than  
+*   using Inverters along with MUX gates, courtesy of a truth table
+* - To add 1 for negation, simply connect op0 to the carry-in of the add32
+* 
+*******************************************************************************
+* Flag Bits
+* - The addtional ouput bits n, v, z serves as flags that describe the output
+*   of the as32 operation
+* - n stands for negative, which is directly connected to the sign bit of 
+*   the operation ouput (fas31)
+* - v stands for overflow, and determines if the operation yields an output 
+*   that fits within the bounds of its 32-bits, in other words, if the 
+*   output can still be read as valid; occurs when the two most significant
+*   bits have different carry-out values, implemented using a XOR with 
+*   c[31:30] from the add32 used
+* - z stands for zero, and tells if the ouput is zero; it is the most 
+*   expensive output (transistor wise), needing a 32-bit NOR in order to 
+*   check if all the bits are indeed zero
+* 
 *******************************************************************************
 .subckt as32 a[31:0] b[31:0] op0 fas[31:0] n v z
     Xop op0#32 b[31:0] bnew[31:0] xor2
@@ -63,10 +92,36 @@ Xas32 a[31:0] b[31:0] op0 fas[31:0] n v z as32
 
 *******************************************************************************
 * 32-bit Comparator
-* equal = op1 & z
-* less = op2 & (n XOR v)
-* fcmp0 = less + equal
-* fcmp0 = !( !(op1 & z) ![op2 & (n XOR v)] )
+* - After computing as32, we can use the flag bits to compare the inputs used
+*   in as32, only during a subtract operation
+* - The comparison type is controlled by 2 control bits; op1, op2
+* - The op1 controls equality compare while op2 controls the less than compare
+* - Less than or equal can also be compared when both control bits are HIGH
+* - The two inputs are equal when their difference is zero, hence equality is
+*   just the value of z
+* - The first input a[31:0] is less than b[31:0] if the difference between 
+*   them is negative while not overflown, but this is also the case when the 
+*   difference is positive when overflown, so by using a truth table we can
+*   say that a less than comparison is just n XOR v
+* - Connect the circuits for equality and less than comparisons to their 
+*   respective control bits using an AND gate to control the type of 
+*   comparison being conducted
+* - The output is another 32-bits except only the least significant bit fcmp0 
+*   is changed and the rest are grounded
+* - The value of fcmp0 is just the comparison of equality OR the comparison 
+*   of less than, given that the comparisons are controlled by their control 
+*   bits
+* - To further optimize this subcircuit, we use De Morgan's Law on the full 
+*   boolean expression of fcmp0 in order to utilize better gates that use 
+*   fewer transistors in order to lessen propagation delay:
+* 
+*   equal = op1 * z
+*   less = op2 * (!nv + !vn)
+*   fcmp0 = less + equal
+*   fcmp0 = ![ !(op1 * z) !(op2 * (!nv + !vn)) ]
+* 
+* - Hence, our final expression for fcmp0 only uses NAND and XOR gates
+* 
 *******************************************************************************
 .subckt cmp32 n v z op[2:1] fcmp[31:0]
     Xequal op1 z equal nand2
